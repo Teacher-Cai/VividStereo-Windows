@@ -1,1 +1,1 @@
-# VividStereo-PC
+# VividStereo-Windows
