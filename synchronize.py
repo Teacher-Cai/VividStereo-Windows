@@ -155,9 +155,10 @@ def send_message_udp(pre_set_ts, target, upd_client):
 def tcp_listener():
     tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_server_socket.bind(('', 4000))
-    tcp_server_socket.listen(2)
+    tcp_server_socket.listen(20)
+    print("tcp_listener start")
     sender_client_socket, sender_aadr = tcp_server_socket.accept()
-    print(sender_aadr)
+    print("tcp_listener:", sender_aadr)
     GlobalInfo.master_device = False
     while True:
         recv_data = sender_client_socket.recv(1024).decode('utf-8')

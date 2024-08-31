@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import os
 import socket
@@ -8,11 +9,10 @@ import tkinter.filedialog
 
 import mutagen.mp3
 import pygame
-import concurrent.futures
 
-from synchronize import send_message_udp, get_absolute_time_diff, udp_communication, tcp_listener
-from utils import load_config, write_config, delayMsecond, get_local_ip
 from global_info import GlobalInfo
+from synchronize import send_message_udp, get_absolute_time_diff, udp_communication, tcp_listener
+from utils import load_config, write_config, delayMsecond, get_local_ip, stop_thread
 
 # 建立一个GUI
 root = tk.Tk()
@@ -38,7 +38,7 @@ device_ip = []  # '192.168.0.108', '192.168.0.100'
 device_time_diff_list = []
 update_config = {}
 upd_client = udp_communication()
-
+tcp_thread = None
 
 def assessPlayingDelay(start_ts):
     for i in range(20):
@@ -237,6 +237,7 @@ def auto_play_next_song():
 
 def udp_read(udp_socket):
     global num
+    global tcp_thread
     while True:
         recv_data = udp_socket.recvfrom(1024)
         recv_message = recv_data[0].decode('utf-8')
@@ -283,6 +284,20 @@ def udp_read(udp_socket):
             GlobalInfo.all_device_ip.append(upd_message['ip_address'])
             print(upd_message['ip_address'])
 
+        elif upd_message['reason'] == 'tcp_sync':
+            # create tcp client local
+            tcp_thread = threading.Thread(target=tcp_listener, args=())
+            tcp_thread.daemon = True
+            tcp_thread.start()
+            print('start tcp server!')
+
+        elif upd_message['reason'] == 'tcp_sync_finished':
+            if tcp_thread is not None:
+                stop_thread(tcp_thread)
+                tcp_thread = None
+                print("tcp close!")
+
+
 # init
 pygame.init()
 pygame.mixer.quit()
@@ -298,10 +313,6 @@ t.start()
 t1 = threading.Thread(target=udp_read, args=(upd_client,))
 t1.daemon = True
 t1.start()
-
-t2 = threading.Thread(target=tcp_listener, args=())
-t2.daemon = True
-t2.start()
 
 # 添加音乐按钮
 buttonAdd = tk.Button(root, text="选文件夹", command=buttonAddClick)
@@ -345,6 +356,8 @@ def start_to_connet_surrounding_devices():
     global device_absolute_time_diff
     global device_ip
 
+    device_ip.clear()
+
     # get all device ip in local network
     GlobalInfo.udp_message.clear()
     GlobalInfo.udp_message['reason'] = 'get_ip_address'
@@ -358,6 +371,14 @@ def start_to_connet_surrounding_devices():
     device_ip = GlobalInfo.all_device_ip
     print("device_ip:", device_ip)
 
+    # ask for preparing tcp client
+    for i in device_ip:
+        GlobalInfo.udp_message.clear()
+        GlobalInfo.udp_message['reason'] = 'tcp_sync'
+        send_message_udp(json.dumps(GlobalInfo.udp_message), i, upd_client)
+
+    time.sleep(1)
+
     for i in device_ip:
         try:
             tcpClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 创建socket对象
@@ -370,7 +391,7 @@ def start_to_connet_surrounding_devices():
         device_tcp.append(tcpClient)
 
     # get different dive absolute time diff
-    executor = concurrent.futures.ThreadPoolExecutor(5)
+    executor = concurrent.futures.ThreadPoolExecutor(20)
 
     for i in device_tcp:
         device_time_diff_list.append(executor.submit(get_absolute_time_diff, i))
@@ -389,6 +410,19 @@ def start_to_connet_surrounding_devices():
         t2.daemon = True
         t2.start()
 
+    # clear
+    for i in device_tcp:
+        i.shutdown(socket.SHUT_RDWR)
+        i.close()
+    device_tcp.clear()
+
+    for i in device_ip:
+        GlobalInfo.udp_message.clear()
+        GlobalInfo.udp_message['reason'] = 'tcp_sync_finished'
+        send_message_udp(json.dumps(GlobalInfo.udp_message), i, upd_client)
+
+    device_absolute_time_diff.clear()
+    device_time_diff_list.clear()
 
 # synchronize play music
 sync_play_button = tk.Button(root, text='同步多播放设备', command=start_to_connet_surrounding_devices)
