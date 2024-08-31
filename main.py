@@ -357,6 +357,7 @@ def start_to_connet_surrounding_devices():
     global device_ip
 
     device_ip.clear()
+    GlobalInfo.master_device = True
 
     # get all device ip in local network
     GlobalInfo.udp_message.clear()
