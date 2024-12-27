@@ -454,9 +454,49 @@ device_running_time_diff_input = tk.Entry(root, textvariable=device_running_time
 device_running_time_diff_input.place(x=150, y=290)
 
 # initialize music list
+def on_double_click(event):
+    # 获取选中的项
+    selection = music_list.curselection()
+    if selection:
+        # 获取选中项的索引
+        index = selection[0]
+        # 获取选中项的文本
+        value = music_list.get(index)
+        print("双击项:", value)
+        # 在这里添加你的代码
+        global num
+        num = index
+
+        ts_sec = time.time()
+        tsMills = int(ts_sec * 1000)
+        if sync_state.get() == "已同步~":
+
+            for idx, i in enumerate(device_ip):
+                pre_set_ts = tsMills - GlobalInfo.ip_with_absolute_time_diff.get(i,
+                                                                                 0) + 1000 + GlobalInfo.ip_with_absolute_time_diff.get(
+                    GlobalInfo.local_ip, 0)
+                next_music = music_name[num]
+
+                GlobalInfo.udp_message.clear()
+                GlobalInfo.udp_message['reason'] = 'music_play'
+                GlobalInfo.udp_message.update({'music_name': next_music, 'timeMs': pre_set_ts})
+
+                t1 = threading.Thread(target=send_message_udp,
+                                      args=(json.dumps(GlobalInfo.udp_message), i, upd_client,))
+                t1.daemon = True
+                t1.start()
+
+            self_set_time = ts_sec + 1 - int(device_running_time_diff_value.get()) / 1000
+            play(self_set_time)
+
+        else:
+            play(0)
+
 var = tk.StringVar()
 music_list = tk.Listbox(root, listvariable=var)
 music_list.place(x=200, y=40, width=260, height=240)
+music_list.bind('<Double-1>', on_double_click)
+
 config = load_config()
 update_config = config
 
