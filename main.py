@@ -135,7 +135,7 @@ def buttonPlayClick():
                 t1.daemon = True
                 t1.start()
 
-        self_set_time = ts_sec + 1 - int(device_running_time_diff_value.get()) / 1000
+        self_set_time = ts_sec + 1 - get_system_delay() / 1000
         play(self_set_time)
 
     elif start_stop.get() == "暂停":
@@ -182,7 +182,7 @@ def buttonPrevClick():
             t1.daemon = True
             t1.start()
 
-        self_set_time = ts_sec + 1 - int(device_running_time_diff_value.get()) / 1000
+        self_set_time = ts_sec + 1 - get_system_delay() / 1000
         play(self_set_time)
 
     else:
@@ -216,7 +216,7 @@ def buttonNextClick():
             t1.daemon = True
             t1.start()
 
-        self_set_time = ts_sec + 1 - int(device_running_time_diff_value.get()) / 1000
+        self_set_time = ts_sec + 1 - get_system_delay() / 1000
         play(self_set_time)
 
     else:
@@ -256,7 +256,7 @@ def udp_read(udp_socket):
             print("udp:", recv_message, music_idx)
 
             if music_idx > -1 and preSetTs > 0:
-                self_set_time = preSetTs - int(device_running_time_diff_value.get())  # ms
+                self_set_time = preSetTs - get_system_delay() # ms
                 num = music_idx
                 play(self_set_time/1000)
 
@@ -486,11 +486,19 @@ def on_double_click(event):
                 t1.daemon = True
                 t1.start()
 
-            self_set_time = ts_sec + 1 - int(device_running_time_diff_value.get()) / 1000
+            self_set_time = ts_sec + 1 - get_system_delay() / 1000
             play(self_set_time)
 
         else:
             play(0)
+
+
+def get_system_delay():
+    try:
+        return int(device_running_time_diff_value.get().strip())
+    except Exception:
+        return 0
+
 
 var = tk.StringVar()
 music_list = tk.Listbox(root, listvariable=var)
@@ -510,7 +518,7 @@ if config and config.get('folder'):
     start_stop.set("播放")
     var.set(music_name)
 
-    device_running_time_diff_value.set(config.get('system_play_delay', 10))
+    device_running_time_diff_value.set(config.get('system_play_delay', 0))
 
 
 def when_close():
